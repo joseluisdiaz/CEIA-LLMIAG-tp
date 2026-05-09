@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Peor Interfaz: Teléfono de Disco</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden; /* Prevenir scroll accidental al girar */
+            touch-action: none; /* Mejor comportamiento táctil */
+        }
+
+        .number-display {
+            font-size: 2.5rem;
+            letter-spacing: 0.2em;
+            text-align: center;
+            background: #fff;
+            border: 2px solid #ccc;
+            border-radius: 12px;
+            padding: 15px 20px;
+            width: 350px;
+            margin-bottom: 40px;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.1);
+            outline: none;
+            color: #1f2937;
+        }
+
+        .dial-container {
+            position: relative;
+            width: 350px;
+            height: 350px;
+            background-color: #1a1a1a;
+            border-radius: 50%;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* El transform se controlará por JS, pero definimos el origen en el centro */
+            transform-origin: center center;
+            will-change: transform;
+        }
+
+        .center-hub {
+            position: absolute;
+            width: 110px;
+            height: 110px;
+            background-color: #f9f9f9;
+            border-radius: 50%;
+            border: 6px solid #d1d5db;
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #9ca3af;
+            font-size: 0.8rem;
+            text-align: center;
+            padding: 10px;
+            pointer-events: none; /* Para no interferir con clics */
+        }
+
+        .hole {
+            position: absolute;
+            width: 48px;
+            height: 48px;
+            background-color: #f9fafb;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #111827;
+            box-shadow: inset 2px 2px 6px rgba(0,0,0,0.6), 0 0 0 2px #374151;
+            user-select: none;
+            cursor: grab;
+        }
+
+        .hole:active {
+            cursor: grabbing;
+        }
+
+        /* Matemáticas: tope está en 115°. Giro Max = 115° - Ángulo Inicial */
+        .hole-1 { transform: rotate(60deg) translateY(-125px) rotate(-60deg); }
+        .hole-2 { transform: rotate(35deg) translateY(-125px) rotate(-35deg); }
+        .hole-3 { transform: rotate(10deg) translateY(-125px) rotate(-10deg); }
+        .hole-4 { transform: rotate(-15deg) translateY(-125px) rotate(15deg); }
+        .hole-5 { transform: rotate(-40deg) translateY(-125px) rotate(40deg); }
+        .hole-6 { transform: rotate(-65deg) translateY(-125px) rotate(65deg); }
+        .hole-7 { transform: rotate(-90deg) translateY(-125px) rotate(90deg); }
+        .hole-8 { transform: rotate(-115deg) translateY(-125px) rotate(115deg); }
+        .hole-9 { transform: rotate(-140deg) translateY(-125px) rotate(140deg); }
+        .hole-0 { transform: rotate(-165deg) translateY(-125px) rotate(165deg); }
+        .hole-del {
+            transform: rotate(-190deg) translateY(-125px) rotate(190deg);
+            font-size: 1.5rem;
+        }
+
+        .finger-stop {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            transform: rotate(115deg);
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        .finger-stop-bar {
+            position: absolute;
+            left: -12px;
+            top: -180px;
+            width: 24px;
+            height: 80px;
+            background: linear-gradient(90deg, #d4d4d4 0%, #9ca3af 50%, #6b7280 100%);
+            border-radius: 12px;
+            box-shadow: 3px 3px 8px rgba(0,0,0,0.7), inset -2px -2px 5px rgba(255,255,255,0.4);
+            border: 1px solid #4b5563;
+        }
+    </style>
+</head>
+<body>
+<div class="flex flex-col items-center">
+
+    <input type="text" class="number-display" readonly placeholder="Teléfono..." id="phone-input">
+
+    <div class="relative">
+        <div class="dial-container" id="dial">
+            <div class="center-hub">Gira para<br>marcar</div>
+
+            <!-- data-val: el número a marcar. data-max: límite de rotación antes de chocar -->
+            <div class="hole hole-1" data-val="1" data-max="55">1</div>
+            <div class="hole hole-2" data-val="2" data-max="80">2</div>
+            <div class="hole hole-3" data-val="3" data-max="105">3</div>
+            <div class="hole hole-4" data-val="4" data-max="130">4</div>
+            <div class="hole hole-5" data-val="5" data-max="155">5</div>
+            <div class="hole hole-6" data-val="6" data-max="180">6</div>
+            <div class="hole hole-7" data-val="7" data-max="205">7</div>
+            <div class="hole hole-8" data-val="8" data-max="230">8</div>
+            <div class="hole hole-9" data-val="9" data-max="255">9</div>
+            <div class="hole hole-0" data-val="0" data-max="280">0</div>
+            <div class="hole hole-del text-red-600" data-val="del" data-max="305" title="Borrar">⌫</div>
+        </div>
+
+        <div class="finger-stop">
+            <div class="finger-stop-bar"></div>
+        </div>
+    </div>
+
+    <div class="mt-10 text-center text-gray-500 max-w-sm">
+        <h2 class="font-bold text-lg text-gray-700">La peor UI del universo</h2>
+        <p class="text-sm mt-2">Haz clic y arrastra uno de los números en el sentido de las agujas del reloj hasta el tope metálico para marcarlo. ¡Paciencia!</p>
+    </div>
+</div>
+
+<script>
+    const dial = document.getElementById('dial');
+    const input = document.getElementById('phone-input');
+
+    let isDragging = false;
+    let currentRotation = 0;
+    let maxRotationAllowed = 0;
+    let selectedValue = '';
+    let lastAngle = 0;
+    let dialCenter = { x: 0, y: 0 };
+
+    function updateCenter() {
+        const rect = dial.getBoundingClientRect();
+        dialCenter = {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2
+        };
+    }
+
+    function getAngle(x, y) {
+        // Retorna ángulo en grados respecto al centro del dial
+        return Math.atan2(y - dialCenter.y, x - dialCenter.x) * (180 / Math.PI);
+    }
+
+    function startDrag(e) {
+        const hole = e.target.closest('.hole');
+        if (!hole) return; // Solo inicia si tocaste exactamente en un agujero
+
+        if (e.type === 'touchstart') e.preventDefault(); // Prevenir scroll en móviles
+
+        isDragging = true;
+        selectedValue = hole.getAttribute('data-val');
+        maxRotationAllowed = parseFloat(hole.getAttribute('data-max'));
+
+        updateCenter();
+
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        lastAngle = getAngle(clientX, clientY);
+
+        // Quitamos transición para que siga al ratón al instante
+        dial.style.transition = 'none';
+    }
+
+    function onDrag(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        const currentMouseAngle = getAngle(clientX, clientY);
+        let deltaAngle = currentMouseAngle - lastAngle;
+
+        // Manejo del salto de 180 a -180 grados en atan2
+        if (deltaAngle > 180) deltaAngle -= 360;
+        if (deltaAngle < -180) deltaAngle += 360;
+
+        currentRotation += deltaAngle;
+
+        // Limitar la rotación: no menor a 0, y no mayor al tope de metal
+        if (currentRotation < 0) currentRotation = 0;
+        if (currentRotation > maxRotationAllowed) currentRotation = maxRotationAllowed;
+
+        // Rotar físicamente el disco
+        dial.style.transform = `rotate(${currentRotation}deg)`;
+
+        lastAngle = currentMouseAngle;
+    }
+
+    function endDrag() {
+        if (!isDragging) return;
+        isDragging = false;
+
+        // Tolerancia de 5 grados para considerar que "llegó" al tope
+        if (currentRotation >= maxRotationAllowed - 5) {
+            if (selectedValue === 'del') {
+                input.value = input.value.slice(0, -1);
+            } else {
+                input.value += selectedValue;
+            }
+        }
+
+        // Calculamos tiempo de retorno: a mayor giro, más tarda en volver (efecto muelle real)
+        const returnTime = Math.max(0.3, currentRotation / 200);
+
+        // Aplicamos animación de retorno
+        dial.style.transition = `transform ${returnTime}s cubic-bezier(0.25, 0.1, 0.25, 1)`;
+        dial.style.transform = `rotate(0deg)`;
+
+        // Reiniciamos rotación lógica
+        currentRotation = 0;
+    }
+
+    // Eventos de ratón
+    dial.addEventListener('mousedown', startDrag);
+    window.addEventListener('mousemove', onDrag);
+    window.addEventListener('mouseup', endDrag);
+
+    // Eventos táctiles para dispositivos móviles
+    dial.addEventListener('touchstart', startDrag, { passive: false });
+    window.addEventListener('touchmove', onDrag, { passive: false });
+    window.addEventListener('touchend', endDrag);
+    window.addEventListener('touchcancel', endDrag);
+
+</script>
+</body>
+</html>
