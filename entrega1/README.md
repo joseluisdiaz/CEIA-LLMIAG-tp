@@ -12,5 +12,5 @@ Intenté hacerlo con ChatGPT, pero no quiso cargar y tuve algunos problemas con 
 
 ## Entregables
 
-- [App](index.html) - La app con la peor interface del mundo.
+- [App](https://joseluisdiaz.github.io/CEIA-LLMIAG-tp/entrega1/) - [Codigo](index.html) - La app con la peor interface del mundo.
 - [Prompts](prompts.md) - Secuencia de prompts 
