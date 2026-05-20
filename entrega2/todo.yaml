@@ -1,0 +1,195 @@
+openapi: 3.1.0
+info:
+  title: API de Tareas (Todos)
+  version: 1.0.0
+  description: |
+    API RESTful para la gestión de tareas siguiendo los principios de API-first.
+    Utiliza identificadores cortos (short-uuid) para los recursos.
+
+servers:
+  - url: https://api.tuproyecto.com/v1
+    description: Servidor de Producción
+  - url: http://localhost:8080/v1
+    description: Servidor de Desarrollo
+
+paths:
+  /todos:
+    get:
+      summary: Listar todos
+      description: Devuelve una lista de todas las tareas. Retorna una versión resumida con solo el ID y el título.
+      operationId: listTodos
+      responses:
+        "200":
+          description: Una lista de tareas (resumida)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TodoListItem"
+
+    post:
+      summary: Crear un nuevo todo
+      description: Crea una nueva tarea. El título es obligatorio.
+      operationId: createTodo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TodoCreate"
+      responses:
+        "201":
+          description: Todo creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Todo"
+        "400":
+          description: Error de validación en los datos enviados
+
+  /todos/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: El identificador único de la tarea (formato short-uuid)
+        schema:
+          type: string
+          example: "mH29J8k3"
+    get:
+      summary: Obtener un todo
+      description: Devuelve el detalle completo de una tarea específica según su ID.
+      operationId: getTodoById
+      responses:
+        "200":
+          description: Detalle de la tarea
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Todo"
+        "404":
+          description: Todo no encontrado
+
+    patch:
+      summary: Actualizar un todo
+      description: Actualiza parcialmente una tarea. Se pueden modificar todos los campos editables excepto el ID y la fecha de creación.
+      operationId: updateTodo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TodoUpdate"
+      responses:
+        "200":
+          description: Todo actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Todo"
+        "400":
+          description: Error de validación en los datos enviados
+        "404":
+          description: Todo no encontrado
+
+    delete:
+      summary: Eliminar un todo
+      description: Borra una tarea del sistema.
+      operationId: deleteTodo
+      responses:
+        "204":
+          description: Todo eliminado exitosamente (sin contenido de respuesta)
+        "404":
+          description: Todo no encontrado
+
+components:
+  schemas:
+    # ---------------------------------------------------------
+    # Esquema principal (Lectura completa)
+    # ---------------------------------------------------------
+    Todo:
+      type: object
+      description: Entidad completa de un Todo.
+      properties:
+        id:
+          type: string
+          description: Identificador único generado por el sistema (short-uuid).
+          example: "mH29J8k3"
+        titulo:
+          type: string
+          description: Título descriptivo de la tarea.
+          example: "Implementar spec de OpenAPI"
+        descripcion:
+          type: string
+          description: Detalles extendidos sobre la tarea.
+          example: "Escribir el archivo yaml con OpenAPI 3.1 para el recurso todos."
+        fecha_limite:
+          type: string
+          format: date-time
+          description: Fecha y hora límite para completar la tarea.
+          example: "2026-05-25T18:00:00Z"
+        fecha_creacion:
+          type: string
+          format: date-time
+          description: Fecha y hora en la que se creó el registro.
+          example: "2026-05-20T14:30:00Z"
+      required:
+        - id
+        - titulo
+        - fecha_creacion
+
+    # ---------------------------------------------------------
+    # Esquema para lista (GET /todos)
+    # ---------------------------------------------------------
+    TodoListItem:
+      type: object
+      description: Versión reducida del Todo para operaciones de listado.
+      properties:
+        id:
+          type: string
+          example: "mH29J8k3"
+        titulo:
+          type: string
+          example: "Implementar spec de OpenAPI"
+      required:
+        - id
+        - titulo
+
+    # ---------------------------------------------------------
+    # Esquema para creación (POST /todos)
+    # ---------------------------------------------------------
+    TodoCreate:
+      type: object
+      description: Payload requerido para crear un Todo.
+      properties:
+        titulo:
+          type: string
+          example: "Aprender OpenAPI"
+        descripcion:
+          type: string
+          example: "Leer la documentación de Swagger y OpenAPI 3.1"
+        fecha_limite:
+          type: string
+          format: date-time
+          example: "2026-06-01T12:00:00Z"
+      required:
+        - titulo
+
+    # ---------------------------------------------------------
+    # Esquema para actualización (PATCH /todos/{id})
+    # ---------------------------------------------------------
+    TodoUpdate:
+      type: object
+      description: Payload para actualizar parcialmente un Todo. Todos los campos son opcionales.
+      properties:
+        titulo:
+          type: string
+          example: "Aprender OpenAPI 3.1"
+        descripcion:
+          type: string
+          example: "Leer específicamente sobre la versión 3.1"
+        fecha_limite:
+          type: string
+          format: date-time
+          example: "2026-06-15T12:00:00Z"
