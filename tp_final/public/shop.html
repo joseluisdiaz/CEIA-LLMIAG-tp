@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Comprar · Vino en Grupo</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>🍷 Vino en Grupo</h1>
+    <nav>
+      <a href="/">Inicio</a>
+      <a href="/ingest.html">Ingesta</a>
+      <a href="/shop.html" class="active">Comprar</a>
+      <a href="/admin.html">Organizador</a>
+    </nav>
+  </header>
+  <main>
+    <h2>Armá tu pedido</h2>
+    <div class="card">
+      <div class="row">
+        <div>
+          <label for="campaign">N° de campaña</label>
+          <input type="number" id="campaign" placeholder="1" />
+        </div>
+        <div>
+          <label for="user">Tu nombre</label>
+          <input type="text" id="user" placeholder="Ana" />
+        </div>
+        <div style="flex:0;"><button id="load">Cargar catálogo</button></div>
+      </div>
+      <div id="msg"></div>
+    </div>
+
+    <div class="card" id="catalogCard" style="display:none;">
+      <div id="catalog"></div>
+      <div class="row" style="margin-top:1rem; align-items:center; justify-content:space-between;">
+        <div class="total">Subtotal: <span id="subtotal">$0</span></div>
+        <div>
+          <button class="ghost" id="save">Guardar pedido</button>
+          <button id="checkout">Cerrar pedido</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const money = (n) => "$" + n.toLocaleString("es-AR");
+    let items = [], qty = {}, orderId = null;
+
+    const params = new URLSearchParams(location.search);
+    if (params.get("campaign")) $("campaign").value = params.get("campaign");
+
+    $("load").addEventListener("click", loadCatalog);
+
+    async function loadCatalog() {
+      const id = $("campaign").value;
+      if (!id) return;
+      const c = await (await fetch("/campaigns/" + id)).json();
+      if (c.status === undefined) { $("msg").innerHTML = '<div class="notice err">Campaña no encontrada.</div>'; return; }
+      if (c.status !== "ready") { $("msg").innerHTML = '<div class="notice err">La campaña está en estado: ' + c.status + '</div>'; return; }
+      $("msg").innerHTML = "";
+      items = c.items; qty = {}; orderId = null;
+      items.forEach((it) => (qty[it.id] = 0));
+      $("catalogCard").style.display = "block";
+      renderCatalog();
+    }
+
+    function renderCatalog() {
+      const rows = items.map((it) =>
+        "<tr><td>" + it.bodega + " · " + it.vino + (it.anada ? " (" + it.anada + ")" : "") +
+        "</td><td class='num'>" + money(it.precioUnitario) + "</td><td>" +
+        "<div class='stepper'>" +
+        "<button class='small ghost' data-dec='" + it.id + "'>−</button>" +
+        "<input type='number' min='0' value='" + qty[it.id] + "' data-qty='" + it.id + "'/>" +
+        "<button class='small ghost' data-inc='" + it.id + "'>+</button>" +
+        "</div></td><td class='num' id='lt-" + it.id + "'>" + money(qty[it.id] * it.precioUnitario) + "</td></tr>"
+      ).join("");
+      $("catalog").innerHTML =
+        "<table><thead><tr><th>Vino</th><th class='num'>Precio</th><th>Cantidad</th><th class='num'>Subtotal</th></tr></thead><tbody>" +
+        rows + "</tbody></table>";
+      bind();
+      recompute();
+    }
+
+    function bind() {
+      document.querySelectorAll("[data-inc]").forEach((b) =>
+        b.onclick = () => setQty(+b.dataset.inc, qty[+b.dataset.inc] + 1));
+      document.querySelectorAll("[data-dec]").forEach((b) =>
+        b.onclick = () => setQty(+b.dataset.dec, Math.max(0, qty[+b.dataset.dec] - 1)));
+      document.querySelectorAll("[data-qty]").forEach((inp) =>
+        inp.onchange = () => setQty(+inp.dataset.qty, Math.max(0, parseInt(inp.value) || 0)));
+    }
+
+    function setQty(id, v) {
+      qty[id] = v;
+      const inp = document.querySelector("[data-qty='" + id + "']");
+      if (inp) inp.value = v;
+      const it = items.find((x) => x.id === id);
+      $("lt-" + id).textContent = money(v * it.precioUnitario);
+      recompute();
+    }
+
+    function recompute() {
+      const sub = items.reduce((s, it) => s + qty[it.id] * it.precioUnitario, 0);
+      $("subtotal").textContent = money(sub);
+    }
+
+    function lines() {
+      return items.filter((it) => qty[it.id] > 0).map((it) => ({ itemId: it.id, qty: qty[it.id] }));
+    }
+
+    $("save").addEventListener("click", async () => {
+      const res = await fetch("/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId: +$("campaign").value, userName: $("user").value.trim(), lines: lines() }),
+      });
+      const data = await res.json();
+      if (!res.ok) return ($("msg").innerHTML = '<div class="notice err">' + data.error + "</div>");
+      orderId = data.id;
+      $("msg").innerHTML = '<div class="notice ok">Pedido #' + data.id + ' guardado. Subtotal ' + money(data.subtotal) + '.</div>';
+    });
+
+    $("checkout").addEventListener("click", async () => {
+      if (!$("user").value.trim()) return;
+      // Asegura que el pedido exista/actualice antes de cerrarlo.
+      const save = await fetch("/orders", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId: +$("campaign").value, userName: $("user").value.trim(), lines: lines() }),
+      });
+      const saved = await save.json();
+      if (!save.ok) return ($("msg").innerHTML = '<div class="notice err">' + saved.error + "</div>");
+      const res = await fetch("/orders/" + saved.id + "/checkout", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) return ($("msg").innerHTML = '<div class="notice err">' + data.error + "</div>");
+      $("msg").innerHTML = '<div class="notice ok">Pedido cerrado ✓ Total ' + money(data.subtotal) + '. Ya no se puede modificar.</div>';
+      $("save").disabled = true; $("checkout").disabled = true;
+    });
+  </script>
+</body>
+</html>

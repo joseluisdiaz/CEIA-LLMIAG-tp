@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ingesta · Vino en Grupo</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>🍷 Vino en Grupo</h1>
+    <nav>
+      <a href="/">Inicio</a>
+      <a href="/ingest.html" class="active">Ingesta</a>
+      <a href="/shop.html">Comprar</a>
+      <a href="/admin.html">Organizador</a>
+    </nav>
+  </header>
+  <main>
+    <h2>Ingesta de promoción</h2>
+    <div class="card">
+      <label for="msg">Pegá el mensaje de WhatsApp con la promo</label>
+      <textarea id="msg" placeholder="🍷 OFERTA! Catena Malbec 2021 - $12.500 c/u. Mínimo caja x6..."></textarea>
+      <div style="margin-top: 0.8rem;">
+        <button id="send">Procesar con IA</button>
+      </div>
+      <div id="status"></div>
+    </div>
+
+    <div class="card" id="resultCard" style="display:none;">
+      <h3>Campaña <span id="cid"></span> · <span id="cstatus"></span></h3>
+      <div id="items"></div>
+      <p id="shopLink" style="margin-top:1rem;"></p>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const money = (n) => "$" + n.toLocaleString("es-AR");
+
+    $("send").addEventListener("click", async () => {
+      const message = $("msg").value.trim();
+      if (!message) return;
+      $("send").disabled = true;
+      $("status").innerHTML = '<div class="notice">Enviando al webhook…</div>';
+      try {
+        const res = await fetch("/webhooks/whatsapp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error en el webhook");
+        $("status").innerHTML = '<div class="notice ok">Recibido (200 OK). Procesando con la IA…</div>';
+        await poll(data.campaignId);
+      } catch (e) {
+        $("status").innerHTML = '<div class="notice err">' + e.message + "</div>";
+      } finally {
+        $("send").disabled = false;
+      }
+    });
+
+    async function poll(id) {
+      for (let i = 0; i < 30; i++) {
+        const c = await (await fetch("/campaigns/" + id)).json();
+        if (c.status !== "processing") return render(c);
+        await new Promise((r) => setTimeout(r, 700));
+      }
+      $("status").innerHTML = '<div class="notice err">Tardó demasiado. Reintentá.</div>';
+    }
+
+    function render(c) {
+      $("status").innerHTML = "";
+      $("resultCard").style.display = "block";
+      $("cid").textContent = "#" + c.id;
+      $("cstatus").innerHTML = '<span class="pill ' + c.status + '">' + c.status + "</span>";
+      if (c.status === "error") {
+        $("items").innerHTML = '<div class="notice err">' + (c.error || "Error al procesar") + "</div>";
+        $("shopLink").innerHTML = "";
+        return;
+      }
+      if (!c.items.length) {
+        $("items").innerHTML = '<p class="muted">No se detectaron promociones de vino.</p>';
+      } else {
+        let rows = c.items.map((it) =>
+          "<tr><td>" + it.bodega + "</td><td>" + it.vino + "</td><td>" + (it.cepa || "—") +
+          "</td><td>" + (it.anada || "—") + "</td><td class='num'>" + money(it.precioUnitario) +
+          "</td><td>" + (it.condiciones || "—") + "</td></tr>"
+        ).join("");
+        $("items").innerHTML =
+          "<table><thead><tr><th>Bodega</th><th>Vino</th><th>Cepa</th><th>Añada</th>" +
+          "<th class='num'>Precio</th><th>Condiciones</th></tr></thead><tbody>" + rows + "</tbody></table>";
+      }
+      $("shopLink").innerHTML =
+        'Compartí esta campaña: <a href="/shop.html?campaign=' + c.id + '">/shop.html?campaign=' + c.id + "</a>";
+    }
+  </script>
+</body>
+</html>

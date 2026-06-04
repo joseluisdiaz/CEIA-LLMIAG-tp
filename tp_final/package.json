@@ -1,0 +1,40 @@
+{
+  "name": "vino-en-grupo",
+  "version": "0.1.0",
+  "description": "De un mensaje de WhatsApp a un e-commerce efímero de compra grupal de vino. TP final LLM/IAG.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.6.0"
+  },
+  "scripts": {
+    "dev": "node --strip-types --watch src/server.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "seed": "node --strip-types src/db/seed.ts",
+    "parse": "node --strip-types src/llm/cli.ts",
+    "generate": "node --strip-types scripts/generate.ts",
+    "build": "tsc --project tsconfig.build.json",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@fastify/static": "^8.0.0",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/type-provider-zod": "^1.0.0",
+    "@scalar/fastify-api-reference": "^1.58.0",
+    "@sinclair/typebox": "^0.34.0",
+    "better-sqlite3": "^11.8.0",
+    "fastify": "^5.2.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@apidevtools/json-schema-ref-parser": "^15.3.5",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.0",
+    "json-schema-to-zod": "^2.8.1",
+    "rollup": "^4.61.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0",
+    "yaml": "^2.9.0"
+  }
+}

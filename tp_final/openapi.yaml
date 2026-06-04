@@ -1,0 +1,464 @@
+openapi: 3.1.0
+info:
+  title: Vino en Grupo API
+  version: 1.0.0
+  description: Ephemeral e-commerce for group wine purchases
+
+servers:
+  - url: http://localhost:3000
+
+components:
+  schemas:
+    Campaign:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, completed, error]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, title, status, createdAt, updatedAt]
+
+    Item:
+      type: object
+      properties:
+        id:
+          type: string
+        campaignId:
+          type: string
+        name:
+          type: string
+        varietals:
+          type: array
+          items:
+            type: string
+        producer:
+          type: string
+        region:
+          type: string
+        vintage:
+          type: integer
+        pricePerUnit:
+          type: integer
+          description: price in pesos (no decimals)
+        unitsAvailable:
+          type: integer
+        description:
+          type: string
+      required: [id, campaignId, name, varietals, producer, region, vintage, pricePerUnit, unitsAvailable]
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        campaignId:
+          type: string
+        buyerPhone:
+          type: string
+        buyerName:
+          type: string
+        subtotalPesos:
+          type: integer
+        status:
+          type: string
+          enum: [open, closed, paid]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, campaignId, buyerPhone, buyerName, subtotalPesos, status, createdAt, updatedAt]
+
+    OrderLine:
+      type: object
+      properties:
+        id:
+          type: string
+        orderId:
+          type: string
+        itemId:
+          type: string
+        quantity:
+          type: integer
+        lineTotalPesos:
+          type: integer
+      required: [id, orderId, itemId, quantity, lineTotalPesos]
+
+    RollupEntry:
+      type: object
+      properties:
+        itemId:
+          type: string
+        name:
+          type: string
+        totalUnits:
+          type: integer
+        totalBoxes:
+          type: number
+          description: calculated as totalUnits / unitsPerBox
+      required: [itemId, name, totalUnits, totalBoxes]
+
+    DistributionEntry:
+      type: object
+      properties:
+        buyerName:
+          type: string
+        buyerPhone:
+          type: string
+        subtotalPesos:
+          type: integer
+        paid:
+          type: boolean
+      required: [buyerName, buyerPhone, subtotalPesos, paid]
+
+    WebhookBody:
+      type: object
+      properties:
+        message:
+          type: string
+          minLength: 1
+      required: [message]
+      additionalProperties: false
+
+    CreateOrderBody:
+      type: object
+      properties:
+        campaignId:
+          type: string
+        buyerPhone:
+          type: string
+        buyerName:
+          type: string
+        lines:
+          type: array
+          items:
+            type: object
+            properties:
+              itemId:
+                type: string
+              quantity:
+                type: integer
+            required: [itemId, quantity]
+      required: [campaignId, buyerPhone, buyerName, lines]
+
+    PaymentBody:
+      type: object
+      properties:
+        paid:
+          type: boolean
+      required: [paid]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        statusCode:
+          type: integer
+      required: [error, statusCode]
+
+paths:
+  /health:
+    get:
+      operationId: health
+      summary: Health check
+      tags: [system]
+      responses:
+        '200':
+          description: Server is running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+
+  /webhooks/whatsapp:
+    post:
+      operationId: ingestPromo
+      summary: Ingest WhatsApp promo message
+      tags: [webhooks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookBody'
+      responses:
+        '200':
+          description: Message queued for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  campaignId:
+                    type: string
+                required: [campaignId]
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Campaign not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /campaigns/{id}:
+    get:
+      operationId: getCampaign
+      summary: Get campaign with items
+      tags: [campaigns]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Campaign and its items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  campaign:
+                    $ref: '#/components/schemas/Campaign'
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Item'
+                required: [campaign, items]
+        '404':
+          description: Campaign not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders:
+    post:
+      operationId: createOrUpdateOrder
+      summary: Create or update order
+      tags: [orders]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderBody'
+      responses:
+        '200':
+          description: Order created/updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order:
+                    $ref: '#/components/schemas/Order'
+                  lines:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrderLine'
+                required: [order, lines]
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Campaign or item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      summary: Get order with lines
+      tags: [orders]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order and its lines
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order:
+                    $ref: '#/components/schemas/Order'
+                  lines:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrderLine'
+                required: [order, lines]
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{id}/checkout:
+    post:
+      operationId: checkoutOrder
+      summary: Close order (mark as closed)
+      tags: [orders]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order closed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order:
+                    $ref: '#/components/schemas/Order'
+                required: [order]
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Order already closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /campaigns/{id}/rollup:
+    get:
+      operationId: getRollup
+      summary: Get total demand by wine
+      tags: [organizer]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rollup by item
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rollup:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RollupEntry'
+                required: [rollup]
+        '404':
+          description: Campaign not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /campaigns/{id}/distribution:
+    get:
+      operationId: getDistribution
+      summary: Get buyer breakdown and payment status
+      tags: [organizer]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Distribution by buyer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  distribution:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DistributionEntry'
+                required: [distribution]
+        '404':
+          description: Campaign not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{id}/payment:
+    patch:
+      operationId: updatePaymentStatus
+      summary: Mark order as paid or unpaid
+      tags: [organizer]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentBody'
+      responses:
+        '200':
+          description: Payment status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order:
+                    $ref: '#/components/schemas/Order'
+                required: [order]
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
