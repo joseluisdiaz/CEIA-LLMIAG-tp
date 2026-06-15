@@ -1,5 +1,5 @@
 import type { DB } from "../db/client.ts";
-import { createCampaign, addItems, setCampaignStatus } from "../db/repositories.ts";
+import { createCampaign, addItems, setCampaignStatus, getActiveCampaign, createCampaignWithName } from "../db/repositories.ts";
 import { parsePromo } from "../llm/parser.ts";
 import type { ParsedPromo } from "../domain/schemas.ts";
 
@@ -24,14 +24,19 @@ export async function processCampaign(
   }
 }
 
-// Crea la campaña (status 'processing') y dispara el procesamiento en segundo
-// plano. Devuelve el id de inmediato para que el webhook responda 200 al instante.
+// Busca una campaña activa (la más reciente). Si no existe, crea una nueva.
+// Luego dispara el procesamiento en segundo plano.
+// Devuelve el id de inmediato para que el webhook responda 200 al instante.
 export function ingestMessage(
   db: DB,
   text: string,
   parse: Parser = parsePromo,
 ): number {
-  const campaignId = createCampaign(db, text);
+  let campaign = getActiveCampaign(db);
+  if (!campaign) {
+    campaign = createCampaignWithName(db, "");
+  }
+  const campaignId = campaign.id;
   // setImmediate garantiza que la respuesta HTTP se envíe antes de empezar a procesar.
   setImmediate(() => void processCampaign(db, campaignId, text, parse));
   return campaignId;

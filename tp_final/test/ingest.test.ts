@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { openDb, type DB } from "../src/db/client.ts";
+import { openDb, type DB, migrate } from "../src/db/client.ts";
 import { buildApp } from "../src/app.ts";
-import { processCampaign } from "../src/services/ingest.ts";
-import { createCampaign, getCampaign, getItems } from "../src/db/repositories.ts";
+import { processCampaign, ingestMessage } from "../src/services/ingest.ts";
+import { createCampaign, getCampaign, getItems, getActiveCampaign, createCampaignWithName } from "../src/db/repositories.ts";
 import type { ParsedPromo } from "../src/domain/schemas.ts";
 
 const fakePromos: ParsedPromo[] = [
@@ -43,6 +43,59 @@ describe("processCampaign", () => {
     expect(c?.status).toBe("error");
     expect(c?.error).toContain("LLM caído");
     expect(getItems(db, id)).toHaveLength(0);
+  });
+});
+
+describe("ingestMessage", () => {
+  it("creates a campaign if none exists", async () => {
+    const text = "Vino A - $1000";
+
+    const mockParser = async (text: string) => [
+      {
+        bodega: "Bodega A",
+        vino: "Vino A",
+        precioUnitario: 1000,
+        cepa: null,
+        anada: null,
+        condiciones: null,
+        minCompra: null,
+        unidadesPorCaja: 6,
+      },
+    ];
+
+    const campaignId = ingestMessage(db, text, mockParser);
+
+    // Campaign is created immediately (before setImmediate processing)
+    const active = getActiveCampaign(db);
+    expect(active).not.toBeNull();
+    expect(active!.id).toBe(campaignId);
+    expect(active!.name).toMatch(/^Campaign \d{4}-/);
+  });
+
+  it("uses existing active campaign if one exists", async () => {
+    const existing = createCampaignWithName(db, "Campaign 2026-06-15T10:00:00Z");
+
+    const text = "Vino B - $2000";
+
+    const mockParser = async (text: string) => [
+      {
+        bodega: "Bodega B",
+        vino: "Vino B",
+        precioUnitario: 2000,
+        cepa: null,
+        anada: null,
+        condiciones: null,
+        minCompra: null,
+        unidadesPorCaja: 6,
+      },
+    ];
+
+    const campaignId = ingestMessage(db, text, mockParser);
+
+    // Should reuse the existing active campaign
+    expect(campaignId).toBe(existing.id);
+    const active = getActiveCampaign(db);
+    expect(active!.id).toBe(existing.id);
   });
 });
 
