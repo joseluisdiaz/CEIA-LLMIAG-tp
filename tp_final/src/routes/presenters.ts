@@ -19,6 +19,7 @@ export function presentItem(it: ItemRow) {
 export function presentCampaign(c: CampaignRow) {
   return {
     id: c.id,
+    name: c.name,
     status: c.status,
     error: c.error,
     createdAt: c.created_at,
