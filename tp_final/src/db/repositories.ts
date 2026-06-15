@@ -249,3 +249,32 @@ export function closeOrder(db: DB, id: number): void {
 export function setOrderPaid(db: DB, id: number, paid: boolean): void {
   db.prepare("UPDATE orders SET paid = ? WHERE id = ?").run(paid ? 1 : 0, id);
 }
+
+// --- Historial de campañas para el organizador ---
+
+export interface RecentCampaignRow {
+  id: number;
+  name: string | null;
+  created_at: string;
+  status: CampaignStatus;
+  buyers: string | null;
+  total: number;
+}
+
+export function listRecentCampaigns(db: DB, limit: number = 10): RecentCampaignRow[] {
+  return db
+    .prepare(
+      `SELECT c.id, c.name, c.created_at, c.status,
+              GROUP_CONCAT(DISTINCT u.name) AS buyers,
+              COALESCE(SUM(ol.qty * i.precio_unitario), 0) AS total
+       FROM campaigns c
+       LEFT JOIN orders o ON o.campaign_id = c.id
+       LEFT JOIN users u ON u.id = o.user_id
+       LEFT JOIN order_lines ol ON ol.order_id = o.id
+       LEFT JOIN items i ON i.id = ol.item_id
+       GROUP BY c.id
+       ORDER BY c.created_at DESC, c.id DESC
+       LIMIT ?`,
+    )
+    .all(limit) as RecentCampaignRow[];
+}

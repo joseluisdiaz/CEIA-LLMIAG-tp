@@ -1,7 +1,16 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { openDb, migrate, type DB } from "../src/db/client.ts";
-import { createCampaign, getActiveCampaign, createCampaignWithName } from "../src/db/repositories.ts";
+import {
+  createCampaign,
+  getActiveCampaign,
+  createCampaignWithName,
+  listRecentCampaigns,
+  addItems,
+  upsertUser,
+  getOrCreateOrder,
+  replaceOrderLines,
+} from "../src/db/repositories.ts";
 import { buildApp } from "../src/app.ts";
 
 let db: DB;
@@ -144,5 +153,55 @@ describe("GET /campaigns/active", () => {
     });
 
     expect(res.statusCode).toBe(404);
+  });
+});
+
+describe("listRecentCampaigns", () => {
+  it("returns empty array when no campaigns exist", () => {
+    expect(listRecentCampaigns(db, 10)).toEqual([]);
+  });
+
+  it("returns campaign with null buyers and zero total when no orders placed", () => {
+    createCampaign(db, "Promo A");
+    const rows = listRecentCampaigns(db, 10);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].buyers).toBeNull();
+    expect(rows[0].total).toBe(0);
+  });
+
+  it("aggregates buyers comma-separated and sums total from order lines", () => {
+    const campaignId = createCampaign(db, "Promo B");
+    addItems(db, campaignId, [
+      { bodega: "Bodega X", vino: "Malbec", precioUnitario: 1000 },
+    ]);
+    const item = db
+      .prepare("SELECT id FROM items WHERE campaign_id = ?")
+      .get(campaignId) as { id: number };
+    const ana = upsertUser(db, "Ana");
+    const bruno = upsertUser(db, "Bruno");
+    replaceOrderLines(db, getOrCreateOrder(db, campaignId, ana.id).id, [
+      { itemId: item.id, qty: 2 },
+    ]);
+    replaceOrderLines(db, getOrCreateOrder(db, campaignId, bruno.id).id, [
+      { itemId: item.id, qty: 3 },
+    ]);
+
+    const [row] = listRecentCampaigns(db, 10);
+    expect(row.total).toBe(5000); // (2+3) * 1000
+    expect(row.buyers).toContain("Ana");
+    expect(row.buyers).toContain("Bruno");
+  });
+
+  it("respects limit parameter", () => {
+    for (let i = 0; i < 12; i++) createCampaign(db, `Promo ${i}`);
+    expect(listRecentCampaigns(db, 10)).toHaveLength(10);
+  });
+
+  it("orders campaigns by created_at DESC (most recent first)", () => {
+    createCampaign(db, "Primera");
+    createCampaign(db, "Segunda");
+    const rows = listRecentCampaigns(db, 10);
+    expect(rows[0].name).toBe("Segunda");
+    expect(rows[1].name).toBe("Primera");
   });
 });
