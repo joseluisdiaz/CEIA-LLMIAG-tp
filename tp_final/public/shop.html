@@ -18,20 +18,9 @@
   </header>
   <main>
     <h2>Armá tu pedido</h2>
-    <div class="card">
-      <div class="row">
-        <div>
-          <label for="campaign">N° de campaña</label>
-          <input type="number" id="campaign" placeholder="1" />
-        </div>
-        <div>
-          <label for="user">Tu nombre</label>
-          <input type="text" id="user" placeholder="Ana" />
-        </div>
-        <div style="flex:0;"><button id="load">Cargar catálogo</button></div>
-      </div>
-      <div id="msg"></div>
-    </div>
+    <p id="campaignName" class="muted" style="margin-top:-0.5rem; margin-bottom:1rem;"></p>
+    <div id="msg"></div>
+    <div class="card" id="nameWidget" style="margin-bottom:1rem;"></div>
 
     <div class="card" id="catalogCard" style="display:none;">
       <div id="catalog"></div>
@@ -48,25 +37,56 @@
   <script>
     const $ = (id) => document.getElementById(id);
     const money = (n) => "$" + n.toLocaleString("es-AR");
-    let items = [], qty = {}, orderId = null;
+    let items = [], qty = {}, orderId = null, campaignId = null;
 
-    const params = new URLSearchParams(location.search);
-    if (params.get("campaign")) $("campaign").value = params.get("campaign");
+    const NAME_KEY = "userName";
+    function getUserName() { return localStorage.getItem(NAME_KEY) || ""; }
+    function saveUserName(name) { if (name) localStorage.setItem(NAME_KEY, name); }
 
-    $("load").addEventListener("click", loadCatalog);
+    function renderNameWidget() {
+      const saved = getUserName();
+      if (saved) {
+        $("nameWidget").innerHTML =
+          `Hola, <strong>${saved}</strong> · <a href="#" id="changeNameLink">cambiar</a>`;
+        $("changeNameLink").onclick = (e) => {
+          e.preventDefault();
+          localStorage.removeItem(NAME_KEY);
+          renderNameWidget();
+        };
+      } else {
+        $("nameWidget").innerHTML =
+          `<label for="userNameInput">Tu nombre</label>` +
+          `<input type="text" id="userNameInput" placeholder="Ana" style="margin-top:0.4rem;" />`;
+        $("userNameInput").addEventListener("blur", () => {
+          saveUserName($("userNameInput").value.trim());
+        });
+      }
+    }
 
-    async function loadCatalog() {
-      const id = $("campaign").value;
-      if (!id) return;
-      const c = await (await fetch("/campaigns/" + id)).json();
-      if (c.status === undefined) { $("msg").innerHTML = '<div class="notice err">Campaña no encontrada.</div>'; return; }
-      if (c.status !== "ready") { $("msg").innerHTML = '<div class="notice err">La campaña está en estado: ' + c.status + '</div>'; return; }
-      $("msg").innerHTML = "";
+    function getEffectiveUserName() {
+      return getUserName() || ($("userNameInput") ? $("userNameInput").value.trim() : "");
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      renderNameWidget();
+      const res = await fetch("/campaigns/active");
+      if (!res.ok) {
+        $("msg").innerHTML = '<div class="notice err">No hay ninguna campaña activa por ahora.</div>';
+        $("nameWidget").style.display = "none";
+        return;
+      }
+      const c = await res.json();
+      campaignId = c.id;
+      $("campaignName").textContent = c.name || `Campaña #${c.id}`;
+      if (c.status !== "ready") {
+        $("msg").innerHTML = `<div class="notice err">La campaña está en estado: ${c.status}</div>`;
+        return;
+      }
       items = c.items; qty = {}; orderId = null;
       items.forEach((it) => (qty[it.id] = 0));
       $("catalogCard").style.display = "block";
       renderCatalog();
-    }
+    });
 
     function renderCatalog() {
       const rows = items.map((it) =>
@@ -113,30 +133,36 @@
     }
 
     $("save").addEventListener("click", async () => {
+      const userName = getEffectiveUserName();
+      if (!userName) return ($("msg").innerHTML = '<div class="notice err">Ingresá tu nombre primero.</div>');
+      saveUserName(userName);
+      renderNameWidget();
       const res = await fetch("/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ campaignId: +$("campaign").value, userName: $("user").value.trim(), lines: lines() }),
+        body: JSON.stringify({ campaignId, userName, lines: lines() }),
       });
       const data = await res.json();
       if (!res.ok) return ($("msg").innerHTML = '<div class="notice err">' + data.error + "</div>");
       orderId = data.id;
-      $("msg").innerHTML = '<div class="notice ok">Pedido #' + data.id + ' guardado. Subtotal ' + money(data.subtotal) + '.</div>';
+      $("msg").innerHTML = '<div class="notice ok">Pedido #' + data.id + " guardado. Subtotal " + money(data.subtotal) + ".</div>";
     });
 
     $("checkout").addEventListener("click", async () => {
-      if (!$("user").value.trim()) return;
-      // Asegura que el pedido exista/actualice antes de cerrarlo.
+      const userName = getEffectiveUserName();
+      if (!userName) return ($("msg").innerHTML = '<div class="notice err">Ingresá tu nombre primero.</div>');
+      saveUserName(userName);
+      renderNameWidget();
       const save = await fetch("/orders", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ campaignId: +$("campaign").value, userName: $("user").value.trim(), lines: lines() }),
+        body: JSON.stringify({ campaignId, userName, lines: lines() }),
       });
       const saved = await save.json();
       if (!save.ok) return ($("msg").innerHTML = '<div class="notice err">' + saved.error + "</div>");
       const res = await fetch("/orders/" + saved.id + "/checkout", { method: "POST" });
       const data = await res.json();
       if (!res.ok) return ($("msg").innerHTML = '<div class="notice err">' + data.error + "</div>");
-      $("msg").innerHTML = '<div class="notice ok">Pedido cerrado ✓ Total ' + money(data.subtotal) + '. Ya no se puede modificar.</div>';
+      $("msg").innerHTML = '<div class="notice ok">Pedido cerrado ✓ Total ' + money(data.subtotal) + ". Ya no se puede modificar.</div>";
       $("save").disabled = true; $("checkout").disabled = true;
     });
   </script>
