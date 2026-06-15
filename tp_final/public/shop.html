@@ -37,6 +37,7 @@
   <script>
     const $ = (id) => document.getElementById(id);
     const money = (n) => "$" + n.toLocaleString("es-AR");
+    const esc = (s) => s ? s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;") : "";
     let items = [], qty = {}, orderId = null, campaignId = null;
 
     const NAME_KEY = "userName";
@@ -47,7 +48,7 @@
       const saved = getUserName();
       if (saved) {
         $("nameWidget").innerHTML =
-          `Hola, <strong>${saved}</strong> · <a href="#" id="changeNameLink">cambiar</a>`;
+          `Hola, <strong>${esc(saved)}</strong> · <a href="#" id="changeNameLink">cambiar</a>`;
         $("changeNameLink").onclick = (e) => {
           e.preventDefault();
           localStorage.removeItem(NAME_KEY);

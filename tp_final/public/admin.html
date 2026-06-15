@@ -136,7 +136,7 @@
         const statusPill = '<span class="pill ' + d.status + '">' + d.status + "</span>";
         return (
           '<div class="card" style="margin:0.6rem 0; padding:0.9rem 1rem;">' +
-          "<strong>" + d.userName + "</strong> " + statusPill + " " + payPill +
+          "<strong>" + esc(d.userName) + "</strong> " + statusPill + " " + payPill +
           '<div class="muted" style="margin:0.3rem 0;">' + lines + "</div>" +
           '<div class="row" style="align-items:center; justify-content:space-between;">' +
           '<span class="total">' + money(d.subtotal) + "</span>" +
