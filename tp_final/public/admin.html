@@ -42,6 +42,7 @@
   <script>
     const $ = (id) => document.getElementById(id);
     const money = (n) => "$" + n.toLocaleString("es-AR");
+    const esc = (s) => s ? s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;") : "";
     let campaignId = null;
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -80,9 +81,9 @@
         });
         return (
           "<tr>" +
-          "<td>" + (c.name || "Campaña #" + c.id) + "</td>" +
+          "<td>" + (c.name ? esc(c.name) : "Campaña #" + c.id) + "</td>" +
           "<td>" + date + "</td>" +
-          "<td class='muted'>" + (c.buyers || "—") + "</td>" +
+          "<td class='muted'>" + (c.buyers ? esc(c.buyers) : "—") + "</td>" +
           "<td class='num'>" + money(c.total) + "</td>" +
           "<td><button class='small' data-load='" + c.id + "'>Cargar</button></td>" +
           "</tr>"
@@ -101,7 +102,9 @@
       const r = await fetch("/campaigns/" + campaignId + "/rollup");
       if (!r.ok) return;
       renderRollup(await r.json());
-      renderDist(await (await fetch("/campaigns/" + campaignId + "/distribution")).json());
+      const d = await fetch("/campaigns/" + campaignId + "/distribution");
+      if (!d.ok) return;
+      renderDist(await d.json());
     }
 
     function renderRollup(rows) {
