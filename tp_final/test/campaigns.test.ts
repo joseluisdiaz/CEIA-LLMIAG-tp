@@ -90,12 +90,11 @@ describe("POST /campaigns", () => {
   });
 
   it("makes the new campaign the active one", async () => {
-    const res1 = await app.inject({
+    await app.inject({
       method: "POST",
       url: "/campaigns",
       payload: {},
     });
-    const campaign1 = res1.json();
 
     const res2 = await app.inject({
       method: "POST",

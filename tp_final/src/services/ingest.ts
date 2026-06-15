@@ -1,5 +1,5 @@
 import type { DB } from "../db/client.ts";
-import { createCampaign, addItems, setCampaignStatus, getActiveCampaign, createCampaignWithName } from "../db/repositories.ts";
+import { addItems, setCampaignStatus, getActiveCampaign, createCampaignWithName } from "../db/repositories.ts";
 import { parsePromo } from "../llm/parser.ts";
 import type { ParsedPromo } from "../domain/schemas.ts";
 

@@ -1,8 +1,6 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import fastifyStatic from "@fastify/static";
 import type { ZodTypeProvider } from "@fastify/type-provider-zod";
-import fastifySwagger from "@fastify/swagger";
-import fastifyScalarApiReference from "@scalar/fastify-api-reference";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import fs from "fs";
@@ -44,7 +42,7 @@ export async function buildApp(opts: AppOptions = {}): Promise<FastifyInstance> 
   app.get("/docs/json", async () => openApiSpec);
 
   // Serve Scalar UI HTML at /docs
-  app.get("/docs", async (request, reply) => {
+  app.get("/docs", async (_request, reply) => {
     const html = `
 <!DOCTYPE html>
 <html>
