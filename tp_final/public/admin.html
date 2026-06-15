@@ -19,25 +19,13 @@
   <main>
     <h2>Panel del organizador</h2>
 
-    <div id="activeCampaignSection" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px;">
-      <h3>Active Campaign</h3>
-      <p id="activeCampaignInfo">Loading...</p>
-      <button id="createCampaignBtn" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
-        Create Campaign
-      </button>
-      <div id="createCampaignError" style="color: red; margin-top: 10px; display: none;"></div>
-      <div id="createCampaignSuccess" style="color: green; margin-top: 10px; display: none;"></div>
-    </div>
-
     <div class="card">
-      <div class="row">
-        <div>
-          <label for="campaign">N° de campaña</label>
-          <input type="number" id="campaign" placeholder="1" />
-        </div>
-        <div style="flex:0;"><button id="load">Cargar</button></div>
+      <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:0.8rem;">
+        <h3 style="margin:0;">Campañas recientes</h3>
+        <button id="createCampaignBtn">+ Nueva campaña</button>
       </div>
-      <div id="msg"></div>
+      <div id="createMsg"></div>
+      <div id="campaignList"></div>
     </div>
 
     <div class="card" id="rollupCard" style="display:none;">
@@ -56,71 +44,62 @@
     const money = (n) => "$" + n.toLocaleString("es-AR");
     let campaignId = null;
 
-    const params = new URLSearchParams(location.search);
-    if (params.get("campaign")) $("campaign").value = params.get("campaign");
+    document.addEventListener("DOMContentLoaded", () => {
+      loadCampaignList();
 
-    $("load").addEventListener("click", load);
-
-    async function getActiveCampaignFromAPI() {
-      const response = await fetch('/campaigns/active');
-      if (!response.ok) throw new Error('No active campaign');
-      return response.json();
-    }
-
-    function getTimeSince(dateString) {
-      const date = new Date(dateString);
-      const now = new Date();
-      const seconds = Math.floor((now - date) / 1000);
-
-      if (seconds < 60) return 'just now';
-      const minutes = Math.floor(seconds / 60);
-      if (minutes < 60) return `${minutes}m ago`;
-      const hours = Math.floor(minutes / 60);
-      if (hours < 24) return `${hours}h ago`;
-      const days = Math.floor(hours / 24);
-      return `${days}d ago`;
-    }
-
-    async function loadActiveCampaign() {
-      try {
-        const activeCampaign = await getActiveCampaignFromAPI();
-        const createdAgo = getTimeSince(activeCampaign.createdAt);
-        document.getElementById('activeCampaignInfo').textContent =
-          `${activeCampaign.name} (created ${createdAgo}, ${activeCampaign.status})`;
-      } catch (e) {
-        document.getElementById('activeCampaignInfo').textContent = 'No campaign created yet';
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      loadActiveCampaign();
-
-      document.getElementById('createCampaignBtn').addEventListener('click', async () => {
-        try {
-          const response = await fetch('/campaigns', { method: 'POST', body: '{}' });
-          if (!response.ok) throw new Error('Failed to create campaign');
-
-          document.getElementById('createCampaignError').style.display = 'none';
-          document.getElementById('createCampaignSuccess').style.display = 'block';
-          document.getElementById('createCampaignSuccess').textContent = 'Campaign created!';
-
-          setTimeout(() => {
-            loadActiveCampaign();
-            document.getElementById('createCampaignSuccess').style.display = 'none';
-          }, 2000);
-        } catch (error) {
-          document.getElementById('createCampaignError').style.display = 'block';
-          document.getElementById('createCampaignError').textContent = `Error: ${error.message}`;
+      $("createCampaignBtn").addEventListener("click", async () => {
+        const res = await fetch("/campaigns", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        });
+        if (!res.ok) {
+          $("createMsg").innerHTML = '<div class="notice err">Error al crear campaña.</div>';
+          return;
         }
+        $("createMsg").innerHTML = '<div class="notice ok">Campaña creada.</div>';
+        setTimeout(() => { $("createMsg").innerHTML = ""; }, 2000);
+        loadCampaignList();
       });
     });
 
-    async function load() {
-      campaignId = $("campaign").value;
-      if (!campaignId) return;
+    async function loadCampaignList() {
+      const res = await fetch("/campaigns");
+      if (!res.ok) {
+        $("campaignList").innerHTML = '<p class="muted">Error cargando campañas.</p>';
+        return;
+      }
+      const campaigns = await res.json();
+      if (!campaigns.length) {
+        $("campaignList").innerHTML = '<p class="muted">Sin campañas aún. Creá una para empezar.</p>';
+        return;
+      }
+      const rows = campaigns.map((c) => {
+        const date = new Date(c.createdAt).toLocaleDateString("es-AR", {
+          day: "numeric", month: "short", year: "numeric",
+        });
+        return (
+          "<tr>" +
+          "<td>" + (c.name || "Campaña #" + c.id) + "</td>" +
+          "<td>" + date + "</td>" +
+          "<td class='muted'>" + (c.buyers || "—") + "</td>" +
+          "<td class='num'>" + money(c.total) + "</td>" +
+          "<td><button class='small' data-load='" + c.id + "'>Cargar</button></td>" +
+          "</tr>"
+        );
+      }).join("");
+      $("campaignList").innerHTML =
+        "<table><thead><tr>" +
+        "<th>Campaña</th><th>Fecha</th><th>Compradores</th><th class='num'>Total</th><th></th>" +
+        "</tr></thead><tbody>" + rows + "</tbody></table>";
+      document.querySelectorAll("[data-load]").forEach((b) =>
+        b.onclick = () => load(+b.dataset.load));
+    }
+
+    async function load(id) {
+      campaignId = id;
       const r = await fetch("/campaigns/" + campaignId + "/rollup");
-      if (!r.ok) { $("msg").innerHTML = '<div class="notice err">Campaña no encontrada.</div>'; return; }
-      $("msg").innerHTML = "";
+      if (!r.ok) return;
       renderRollup(await r.json());
       renderDist(await (await fetch("/campaigns/" + campaignId + "/distribution")).json());
     }
@@ -169,7 +148,7 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ paid: b.dataset.val === "true" }),
           });
-          load();
+          load(campaignId);
         });
     }
   </script>
