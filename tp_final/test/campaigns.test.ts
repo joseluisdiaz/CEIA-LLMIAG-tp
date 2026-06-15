@@ -205,3 +205,41 @@ describe("listRecentCampaigns", () => {
     expect(rows[1].name).toBe("Primera");
   });
 });
+
+describe("GET /campaigns", () => {
+  let app: FastifyInstance;
+
+  beforeEach(async () => {
+    db = openDb(":memory:");
+    migrate(db);
+    app = await buildApp({ db, parse: async () => [], logger: false });
+  });
+
+  it("returns empty array when no campaigns exist", async () => {
+    const res = await app.inject({ method: "GET", url: "/campaigns" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual([]);
+  });
+
+  it("returns campaign with expected fields", async () => {
+    await app.inject({ method: "POST", url: "/campaigns", payload: {} });
+
+    const res = await app.inject({ method: "GET", url: "/campaigns" });
+    expect(res.statusCode).toBe(200);
+    const list = res.json();
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ buyers: null, total: 0 });
+    expect(list[0]).toHaveProperty("id");
+    expect(list[0]).toHaveProperty("name");
+    expect(list[0]).toHaveProperty("createdAt");
+    expect(list[0]).toHaveProperty("status");
+  });
+
+  it("returns at most 10 campaigns", async () => {
+    for (let i = 0; i < 12; i++) {
+      await app.inject({ method: "POST", url: "/campaigns", payload: {} });
+    }
+    const res = await app.inject({ method: "GET", url: "/campaigns" });
+    expect(res.json()).toHaveLength(10);
+  });
+});

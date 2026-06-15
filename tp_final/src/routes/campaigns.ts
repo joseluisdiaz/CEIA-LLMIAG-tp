@@ -1,6 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import type { DB } from "../db/client.ts";
-import { getCampaign, getItems, createCampaignWithName, getActiveCampaign } from "../db/repositories.ts";
+import {
+  getCampaign,
+  getItems,
+  createCampaignWithName,
+  getActiveCampaign,
+  listRecentCampaigns,
+} from "../db/repositories.ts";
 import { presentCampaign, presentItem } from "./presenters.ts";
 
 // Rutas de lectura de campañas. GET /campaigns/:id devuelve el estado del
@@ -9,6 +15,17 @@ export function registerCampaignRoutes(app: FastifyInstance, db: DB): void {
   app.post("/campaigns", async () => {
     const campaign = createCampaignWithName(db, "");
     return presentCampaign(campaign);
+  });
+
+  app.get("/campaigns", async () => {
+    return listRecentCampaigns(db, 10).map((c) => ({
+      id: c.id,
+      name: c.name,
+      createdAt: c.created_at,
+      status: c.status,
+      buyers: c.buyers,
+      total: c.total,
+    }));
   });
 
   app.get("/campaigns/active", async (_req, reply) => {
