@@ -6,7 +6,8 @@ export type CampaignStatus = "processing" | "ready" | "error";
 
 export interface CampaignRow {
   id: number;
-  source_text: string;
+  name: string | null;
+  source_text: string | null;
   status: CampaignStatus;
   error: string | null;
   created_at: string;

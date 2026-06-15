@@ -6,7 +6,8 @@ export const SCHEMA_SQL = `
 -- estado del procesamiento del LLM para poder observarlo de forma asíncrona.
 CREATE TABLE IF NOT EXISTS campaigns (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  source_text TEXT    NOT NULL,
+  name        TEXT,
+  source_text TEXT,
   status      TEXT    NOT NULL DEFAULT 'processing'
               CHECK (status IN ('processing', 'ready', 'error')),
   error       TEXT,
