@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { openDb, type DB } from "../src/db/client.ts";
 import { buildApp } from "../src/app.ts";
@@ -38,9 +38,6 @@ beforeEach(async () => {
     url: "/orders",
     payload: { campaignId, userName: "Beto", lines: [{ itemId: malbecId, qty: 4 }] },
   });
-});
-afterEach(async () => {
-  await app.close();
 });
 
 describe("roll-up (agregación)", () => {

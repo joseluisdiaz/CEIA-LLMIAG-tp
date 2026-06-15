@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { openDb, migrate, type DB } from "../src/db/client.ts";
 import { createCampaign, getActiveCampaign, createCampaignWithName } from "../src/db/repositories.ts";
@@ -71,10 +71,6 @@ describe("POST /campaigns", () => {
     app = await buildApp({ db, parse: async () => [], logger: false });
   });
 
-  afterEach(async () => {
-    await app.close();
-  });
-
   it("creates a new campaign with auto-generated name", async () => {
     const response = await app.inject({
       method: "POST",
@@ -121,10 +117,6 @@ describe("GET /campaigns/active", () => {
     db = openDb(":memory:");
     migrate(db);
     app = await buildApp({ db, parse: async () => [], logger: false });
-  });
-
-  afterEach(async () => {
-    await app.close();
   });
 
   it("returns the active campaign", async () => {

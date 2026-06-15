@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { openDb, migrate, type DB } from "../../src/db/client.ts";
 import { buildApp } from "../../src/app.ts";
@@ -25,10 +25,6 @@ describe("Integration: Webhook and Campaign Management", () => {
     db = openDb(":memory:");
     migrate(db);
     app = await buildApp({ db, parse: mockParser, logger: false });
-  });
-
-  afterEach(async () => {
-    await app.close();
   });
 
   it("webhook creates campaign if none exists", async () => {

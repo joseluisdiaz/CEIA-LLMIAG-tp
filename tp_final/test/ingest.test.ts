@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { openDb, type DB } from "../src/db/client.ts";
 import { buildApp } from "../src/app.ts";
@@ -104,9 +104,6 @@ describe("POST /webhooks/whatsapp", () => {
 
   beforeEach(async () => {
     app = await buildApp({ db, parse: fakeParse, logger: false });
-  });
-  afterEach(async () => {
-    await app.close();
   });
 
   it("responde 200 al instante con la campaña en processing y luego queda ready", async () => {

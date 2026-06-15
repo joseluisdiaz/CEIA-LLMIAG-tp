@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { openDb, type DB } from "../src/db/client.ts";
 import { buildApp } from "../src/app.ts";
@@ -22,9 +22,6 @@ beforeEach(async () => {
   malbecId = items[0].id;
   cabernetId = items[1].id;
   app = await buildApp({ db, logger: false });
-});
-afterEach(async () => {
-  await app.close();
 });
 
 async function postOrder(lines: { itemId: number; qty: number }[], userName = "Jose") {
