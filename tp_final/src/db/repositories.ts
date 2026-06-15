@@ -62,11 +62,23 @@ export interface NewItem {
 
 // --- Campañas ---
 
-export function createCampaign(db: DB, sourceText: string): number {
+export function createCampaign(db: DB, name: string, sourceText?: string): number {
   const info = db
-    .prepare("INSERT INTO campaigns (source_text) VALUES (?)")
-    .run(sourceText);
+    .prepare("INSERT INTO campaigns (name, source_text) VALUES (?, ?)")
+    .run(name, sourceText ?? null);
   return Number(info.lastInsertRowid);
+}
+
+export function getActiveCampaign(db: DB): CampaignRow | null {
+  const row = db
+    .prepare(
+      `SELECT id, name, source_text, status, error, created_at
+       FROM campaigns
+       ORDER BY created_at DESC, id DESC
+       LIMIT 1`,
+    )
+    .get() as CampaignRow | undefined;
+  return row ?? null;
 }
 
 export function setCampaignStatus(
