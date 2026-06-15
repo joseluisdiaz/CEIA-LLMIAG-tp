@@ -69,6 +69,17 @@ export function createCampaign(db: DB, name: string, sourceText?: string): numbe
   return Number(info.lastInsertRowid);
 }
 
+export function createCampaignWithName(db: DB, name: string): CampaignRow {
+  const finalName = name && name.trim() ? name : `Campaign ${new Date().toISOString()}`;
+  const info = db
+    .prepare("INSERT INTO campaigns (name, source_text) VALUES (?, ?)")
+    .run(finalName, null);
+  const id = Number(info.lastInsertRowid);
+  const campaign = getCampaign(db, id);
+  if (!campaign) throw new Error(`Failed to retrieve created campaign with id ${id}`);
+  return campaign;
+}
+
 export function getActiveCampaign(db: DB): CampaignRow | null {
   const row = db
     .prepare(
